@@ -62,7 +62,7 @@ npm run build    # 类型检查 + 产物构建(main.js)
 
 ```bash
 export OPENLIST_TOKEN=openlist-xxxx
-python3 upload.py photo.jpg /189Cloud/test
+python3 upload.py --server https://alist.example.com photo.jpg /189Cloud/test
 ```
 
-输出稳定直链及 Markdown / HTML 嵌入片段(按文件类型自动选择 `<img>` / `<video>` / `<audio>` / 普通链接)。
+站点地址用 `--server` 传入(或环境变量 `OPENLIST_BASE`),令牌只走环境变量 `OPENLIST_TOKEN`(避免留在 shell 历史)。输出稳定直链及 Markdown / HTML 嵌入片段(按文件类型自动选择 `<img>` / `<video>` / `<audio>` / 普通链接)。

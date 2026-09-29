@@ -2,28 +2,28 @@
 """上传文件到 OpenList 并输出稳定直链(可嵌入 Markdown / 网页)。
 
 用法:
-    python3 upload.py <文件路径> [目标目录]
+    python3 upload.py --server https://alist.example.com <文件路径> [目标目录]
 
 示例:
-    python3 upload.py photo.jpg                 # 上传到 /189Cloud/test/
-    python3 upload.py photo.jpg /189Cloud/img   # 上传到 /189Cloud/img/
+    python3 upload.py -s https://alist.example.com photo.jpg
+    python3 upload.py -s https://alist.example.com photo.jpg /189Cloud/img
 
-令牌可用环境变量 OPENLIST_TOKEN 覆盖。
+地址与凭据:
+    --server / 环境变量 OPENLIST_BASE   OpenList 站点地址(二选一,必填)
+    环境变量 OPENLIST_TOKEN             API 令牌(必填,避免出现在 shell 历史中)
 """
 
+import argparse
+import json
 import os
 import sys
 import urllib.parse
 import urllib.request
 
-BASE_URL = os.environ.get("OPENLIST_BASE", "https://alist.461922950.xyz")
-TOKEN = os.environ.get("OPENLIST_TOKEN", "")
-if not TOKEN:
-    sys.exit("请通过环境变量 OPENLIST_TOKEN 提供 API 令牌")
 DEFAULT_DIR = "/189Cloud/test"
 
 
-def upload(local_path: str, remote_dir: str) -> str:
+def upload(base_url: str, token: str, local_path: str, remote_dir: str) -> str:
     filename = os.path.basename(local_path)
     remote_path = f"{remote_dir.rstrip('/')}/{filename}"
     # File-Path 头必须 URL 编码(整段路径,含斜杠)
@@ -33,11 +33,11 @@ def upload(local_path: str, remote_dir: str) -> str:
         data = f.read()
 
     req = urllib.request.Request(
-        f"{BASE_URL}/api/fs/put",
+        f"{base_url}/api/fs/put",
         data=data,
         method="PUT",
         headers={
-            "Authorization": TOKEN,
+            "Authorization": token,
             "File-Path": file_path_header,
             "Content-Type": "application/octet-stream",
             "As-Task": "false",
@@ -46,14 +46,12 @@ def upload(local_path: str, remote_dir: str) -> str:
         },
     )
     with urllib.request.urlopen(req, timeout=120) as resp:
-        import json
-
         result = json.loads(resp.read())
     if result.get("code") != 200:
         raise RuntimeError(f"上传失败: {result}")
 
     # 稳定直链: /d/<路径> ,文件名需 URL 编码但保留斜杠
-    direct_link = f"{BASE_URL}/d{urllib.parse.quote(remote_path)}"
+    direct_link = f"{base_url}/d{urllib.parse.quote(remote_path)}"
     return direct_link
 
 
@@ -75,14 +73,33 @@ def snippets(name: str, link: str) -> list[str]:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print(__doc__)
-        sys.exit(1)
-    local = sys.argv[1]
-    remote_dir = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_DIR
+    parser = argparse.ArgumentParser(
+        description="上传文件到 OpenList 并输出稳定直链(可嵌入 Markdown / 网页)"
+    )
+    parser.add_argument("file", help="本地文件路径")
+    parser.add_argument(
+        "remote_dir",
+        nargs="?",
+        default=DEFAULT_DIR,
+        help=f"远程目录(默认 {DEFAULT_DIR})",
+    )
+    parser.add_argument(
+        "-s",
+        "--server",
+        default=os.environ.get("OPENLIST_BASE", ""),
+        help="OpenList 站点地址,也可用环境变量 OPENLIST_BASE",
+    )
+    args = parser.parse_args()
 
-    link = upload(local, remote_dir)
-    name = os.path.basename(local)
+    if not args.server:
+        parser.error("请通过 --server 或环境变量 OPENLIST_BASE 提供站点地址")
+    token = os.environ.get("OPENLIST_TOKEN", "")
+    if not token:
+        parser.error("请通过环境变量 OPENLIST_TOKEN 提供 API 令牌")
+
+    base_url = args.server.rstrip("/")
+    link = upload(base_url, token, args.file, args.remote_dir)
+    name = os.path.basename(args.file)
     print(f"直链: {link}")
     for line in snippets(name, link):
         print(line)
