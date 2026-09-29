@@ -18,6 +18,14 @@ const IMAGE_EXTS = new Set([
   "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif", "ico",
 ]);
 
+/** 本地链接可用 ! 前缀嵌入预览的类型(与 Obsidian 原生粘贴一致) */
+const EMBED_EXTS = new Set([
+  ...IMAGE_EXTS,
+  "mp4", "webm", "mov", "mkv", "avi", "m4v",
+  "mp3", "wav", "ogg", "flac", "m4a", "aac",
+  "pdf",
+]);
+
 /** 剪贴板截图常见的无意义文件名 */
 const GENERIC_NAME = /^(image|pasted image|截图|图片)[ .]/i;
 
@@ -173,6 +181,19 @@ export default class OpenListAttachPlugin extends Plugin {
    * 乐观插入:先存本地附件并插入本地链接(预览即时生效),
    * 后台上传成功后再把该链接替换为云端链接;失败则保留本地附件。
    */
+  /** 配置预检;返回 null 表示可上传,否则返回缺少的配置项说明 */
+  private validateConfig(): string | null {
+    if (!this.settings.serverUrl) return "服务器地址";
+    if (this.settings.authMode === "token" && !this.settings.token)
+      return "API 令牌";
+    if (
+      this.settings.authMode === "password" &&
+      (!this.settings.username || !this.settings.password)
+    )
+      return "用户名/密码";
+    return null;
+  }
+
   private async handleFiles(
     files: File[],
     view: MarkdownView,
@@ -181,6 +202,7 @@ export default class OpenListAttachPlugin extends Plugin {
     const editor = view.editor;
     const sourcePath = view.file?.path ?? "";
     const client = this.makeClient();
+    const configErr = this.validateConfig();
     for (const file of files) {
       let name = file.name || "";
       if (fromClipboard && (!name || GENERIC_NAME.test(name))) {
@@ -203,10 +225,12 @@ export default class OpenListAttachPlugin extends Plugin {
             sourcePath
           );
         tfile = await this.app.vault.createBinary(localPath, data);
-        localLink = this.app.fileManager.generateMarkdownLink(
+        const raw = this.app.fileManager.generateMarkdownLink(
           tfile,
           sourcePath
         );
+        // generateMarkdownLink 生成的是普通链接,可嵌入类型需补 ! 前缀
+        localLink = (EMBED_EXTS.has(extOf(name)) ? "!" : "") + raw;
       } catch (e) {
         new Notice(`❌ 保存本地附件失败: ${(e as Error).message}`, 6000);
         continue;
@@ -214,6 +238,13 @@ export default class OpenListAttachPlugin extends Plugin {
       editor.replaceSelection(localLink + "\n");
 
       // 2. 后台上传,成功后替换链接(不阻塞编辑)
+      if (configErr) {
+        new Notice(
+          `已保存到本地,但未上传:缺少配置「${configErr}」,请到 OpenList Attach 设置页完善`,
+          8000
+        );
+        continue;
+      }
       const remotePath = this.remotePathFor(name);
       void this.uploadAndSwap(client, tfile, data, remotePath, view, localLink);
     }
@@ -228,15 +259,19 @@ export default class OpenListAttachPlugin extends Plugin {
     view: MarkdownView,
     localLink: string
   ): Promise<void> {
+    const progress = new Notice(`⏫ 后台上传中: ${tfile.name}`, 0);
     try {
       await client.upload(remotePath, data);
     } catch (e) {
+      progress.hide();
+      console.error("[OpenList Attach] upload failed:", e);
       new Notice(
         `❌ 后台上传失败 ${tfile.name},已保留本地附件: ${(e as Error).message}`,
         8000
       );
       return;
     }
+    progress.hide();
     const cloud = this.insertSyntax(tfile.name, remotePath);
     const noteFile = view.file;
     if (!noteFile) return;
@@ -269,6 +304,14 @@ export default class OpenListAttachPlugin extends Plugin {
 
   /** 扫描当前笔记中的本地附件链接,上传后替换为云端链接 */
   private async uploadNoteAttachments(): Promise<void> {
+    const configErr = this.validateConfig();
+    if (configErr) {
+      new Notice(
+        `无法上传:缺少配置「${configErr}」,请到 OpenList Attach 设置页完善`,
+        8000
+      );
+      return;
+    }
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!view || !view.file) {
       new Notice("没有打开的 Markdown 笔记");
@@ -356,6 +399,14 @@ export default class OpenListAttachPlugin extends Plugin {
 
   /** 右键上传:上传指定文件,并把全库笔记中对它的引用替换为云端链接 */
   private async uploadFileAndReplaceRefs(file: TFile): Promise<void> {
+    const configErr = this.validateConfig();
+    if (configErr) {
+      new Notice(
+        `无法上传:缺少配置「${configErr}」,请到 OpenList Attach 设置页完善`,
+        8000
+      );
+      return;
+    }
     const blocked = this.blockedExt(file.name);
     if (blocked) {
       new Notice(`已按类型过滤设置跳过: ${file.name} (.${blocked})`, 5000);
