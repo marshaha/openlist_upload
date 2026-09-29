@@ -50,6 +50,7 @@ export default class OpenListAttachPlugin extends Plugin {
 
     this.registerEvent(
       this.app.workspace.on("editor-paste", (evt, editor, view) => {
+        if (!this.settings.autoUpload) return;
         if (!(view instanceof MarkdownView)) return;
         const files = evt.clipboardData?.files;
         if (!files || files.length === 0) return;
@@ -60,6 +61,7 @@ export default class OpenListAttachPlugin extends Plugin {
 
     this.registerEvent(
       this.app.workspace.on("editor-drop", (evt, editor, view) => {
+        if (!this.settings.autoUpload) return;
         if (!(view instanceof MarkdownView)) return;
         const files = evt.dataTransfer?.files;
         if (!files || files.length === 0) return;
@@ -85,6 +87,20 @@ export default class OpenListAttachPlugin extends Plugin {
             .setTitle("上传本地附件到 OpenList")
             .setIcon("upload-cloud")
             .onClick(() => void this.uploadNoteAttachments())
+        );
+      })
+    );
+
+    // 文件列表等资源右键:上传该文件并替换所有笔记中的引用
+    this.registerEvent(
+      this.app.workspace.on("file-menu", (menu, file) => {
+        if (!(file instanceof TFile)) return; // 排除文件夹
+        if (file.extension.toLowerCase() === "md") return;
+        menu.addItem((item) =>
+          item
+            .setTitle("上传到 OpenList 并替换引用")
+            .setIcon("upload-cloud")
+            .onClick(() => void this.uploadFileAndReplaceRefs(file))
         );
       })
     );
@@ -274,5 +290,99 @@ export default class OpenListAttachPlugin extends Plugin {
       await this.app.vault.modify(file, newContent);
     }
     new Notice(`完成:成功上传 ${ok}/${found.length} 个附件`);
+  }
+
+  /** 右键上传:上传指定文件,并把全库笔记中对它的引用替换为云端链接 */
+  private async uploadFileAndReplaceRefs(file: TFile): Promise<void> {
+    const blocked = this.blockedExt(file.name);
+    if (blocked) {
+      new Notice(`已按类型过滤设置跳过: ${file.name} (.${blocked})`, 5000);
+      return;
+    }
+    const remotePath = this.remotePathFor(file.name);
+    const progress = new Notice(`上传中: ${file.name}`, 0);
+    try {
+      const data = await this.app.vault.readBinary(file);
+      await this.makeClient().upload(remotePath, data);
+    } catch (e) {
+      progress.hide();
+      new Notice(`❌ 上传失败 ${file.name}: ${(e as Error).message}`, 6000);
+      return;
+    }
+    progress.hide();
+
+    const makeSyntax = (alt?: string) =>
+      this.insertSyntax(file.name, remotePath, alt);
+
+    // resolvedLinks: sourcePath -> { destPath: count },用它定位引用笔记
+    const resolved = this.app.metadataCache.resolvedLinks;
+    let notes = 0;
+    let refs = 0;
+    for (const note of this.app.vault.getMarkdownFiles()) {
+      if (!resolved[note.path]?.[file.path]) continue;
+      const content = await this.app.vault.read(note);
+      const { content: updated, count } = this.replaceRefsInContent(
+        content,
+        note.path,
+        file,
+        makeSyntax
+      );
+      if (count > 0 && updated !== content) {
+        await this.app.vault.modify(note, updated);
+        notes++;
+        refs += count;
+      }
+    }
+
+    if (refs > 0) {
+      new Notice(
+        `✅ 已上传 ${file.name},替换 ${notes} 篇笔记中的 ${refs} 处引用(本地文件已保留)`
+      );
+    } else {
+      await navigator.clipboard.writeText(makeSyntax());
+      new Notice(
+        `✅ 已上传 ${file.name},未找到引用笔记,云端链接已复制到剪贴板`
+      );
+    }
+  }
+
+  /** 把笔记内容中所有指向 target 的本地链接替换为云端语法,返回新内容与替换次数 */
+  private replaceRefsInContent(
+    content: string,
+    sourcePath: string,
+    target: TFile,
+    makeSyntax: (alt?: string) => string
+  ): { content: string; count: number } {
+    const re =
+      /!?\[\[([^\]|]+?)(?:\|([^\]]*))?\]\]|!?\[([^\]]*)\]\(([^)]+?)\)/g;
+    const replacements = new Map<string, string | undefined>();
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(content)) !== null) {
+      const isWiki = m[1] !== undefined;
+      const path = (isWiki ? m[1] : m[4])?.trim();
+      if (!path || /^https?:\/\//i.test(path)) continue;
+      let decoded = path.replace(/^<|>$/g, "");
+      try {
+        decoded = decodeURIComponent(decoded);
+      } catch {
+        /* 保留原样 */
+      }
+      const dest = this.app.metadataCache.getFirstLinkpathDest(
+        decoded,
+        sourcePath
+      );
+      if (dest?.path !== target.path) continue;
+      if (!replacements.has(m[0])) {
+        replacements.set(m[0], isWiki ? m[2] || undefined : m[3] || undefined);
+      }
+    }
+    let result = content;
+    let count = 0;
+    for (const [whole, alt] of replacements) {
+      const parts = result.split(whole);
+      count += parts.length - 1;
+      result = parts.join(makeSyntax(alt));
+    }
+    return { content: result, count };
   }
 }

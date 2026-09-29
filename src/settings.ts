@@ -11,6 +11,8 @@ export interface OpenListAttachSettings {
   username: string;
   password: string;
   remoteDir: string;
+  /** 粘贴/拖拽时自动上传;关闭则走 Obsidian 默认(存入本地库) */
+  autoUpload: boolean;
   /** 逗号分隔的扩展名(不带点),留空表示不限制 */
   allowedExts: string;
   conflictStrategy: ConflictStrategy;
@@ -24,6 +26,7 @@ export const DEFAULT_SETTINGS: OpenListAttachSettings = {
   username: "",
   password: "",
   remoteDir: "/189Cloud/test",
+  autoUpload: true,
   allowedExts: "",
   conflictStrategy: "timestamp",
   linkType: "direct",
@@ -129,6 +132,16 @@ export class OpenListSettingTab extends PluginSettingTab {
             s.remoteDir = normalizeDir(value);
             await this.plugin.saveSettings();
           })
+      );
+
+    new Setting(containerEl)
+      .setName("粘贴/拖拽自动上传")
+      .setDesc("关闭后粘贴/拖拽走 Obsidian 默认行为(附件存入本地库),可用右键菜单或命令手动上传")
+      .addToggle((toggle) =>
+        toggle.setValue(s.autoUpload).onChange(async (value) => {
+          s.autoUpload = value;
+          await this.plugin.saveSettings();
+        })
       );
 
     new Setting(containerEl)
