@@ -1,5 +1,4 @@
 import {
-  Editor,
   MarkdownView,
   Notice,
   Plugin,
@@ -55,7 +54,7 @@ export default class OpenListAttachPlugin extends Plugin {
         const files = evt.clipboardData?.files;
         if (!files || files.length === 0) return;
         evt.preventDefault();
-        void this.handleFiles(Array.from(files), editor, true);
+        void this.handleFiles(Array.from(files), view, true);
       })
     );
 
@@ -69,7 +68,7 @@ export default class OpenListAttachPlugin extends Plugin {
         const types = Array.from(evt.dataTransfer?.types ?? []);
         if (!types.includes("Files")) return;
         evt.preventDefault();
-        void this.handleFiles(Array.from(files), editor, false);
+        void this.handleFiles(Array.from(files), view, false);
       })
     );
 
@@ -170,14 +169,19 @@ export default class OpenListAttachPlugin extends Plugin {
     return `[${alt ?? name}](${link})`;
   }
 
+  /**
+   * 乐观插入:先存本地附件并插入本地链接(预览即时生效),
+   * 后台上传成功后再把该链接替换为云端链接;失败则保留本地附件。
+   */
   private async handleFiles(
     files: File[],
-    editor: Editor,
+    view: MarkdownView,
     fromClipboard: boolean
   ): Promise<void> {
+    const editor = view.editor;
+    const sourcePath = view.file?.path ?? "";
     const client = this.makeClient();
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    for (const file of files) {
       let name = file.name || "";
       if (fromClipboard && (!name || GENERIC_NAME.test(name))) {
         name = `Pasted-${timestampName()}.${extOf(name) || "png"}`;
@@ -187,22 +191,80 @@ export default class OpenListAttachPlugin extends Plugin {
         new Notice(`已按类型过滤设置跳过: ${name} (.${blocked})`, 5000);
         continue;
       }
-      const remotePath = this.remotePathFor(name);
-      const progress = new Notice(
-        `上传中 ${i + 1}/${files.length}: ${name}`,
-        0
-      );
+      const data = await file.arrayBuffer();
+
+      // 1. 存入库附件目录并插入本地链接,立即可预览
+      let tfile: TFile;
+      let localLink: string;
       try {
-        const data = await file.arrayBuffer();
-        await client.upload(remotePath, data);
-        progress.hide();
-        editor.replaceSelection(this.insertSyntax(name, remotePath) + "\n");
-        new Notice(`✅ 已上传: ${name}`);
+        const localPath =
+          await this.app.fileManager.getAvailablePathForAttachment(
+            name,
+            sourcePath
+          );
+        tfile = await this.app.vault.createBinary(localPath, data);
+        localLink = this.app.fileManager.generateMarkdownLink(
+          tfile,
+          sourcePath
+        );
       } catch (e) {
-        progress.hide();
-        new Notice(`❌ 上传失败 ${name}: ${(e as Error).message}`, 6000);
+        new Notice(`❌ 保存本地附件失败: ${(e as Error).message}`, 6000);
+        continue;
       }
+      editor.replaceSelection(localLink + "\n");
+
+      // 2. 后台上传,成功后替换链接(不阻塞编辑)
+      const remotePath = this.remotePathFor(name);
+      void this.uploadAndSwap(client, tfile, data, remotePath, view, localLink);
     }
+  }
+
+  /** 后台上传;成功后将笔记中的本地链接原位替换为云端链接 */
+  private async uploadAndSwap(
+    client: OpenListClient,
+    tfile: TFile,
+    data: ArrayBuffer,
+    remotePath: string,
+    view: MarkdownView,
+    localLink: string
+  ): Promise<void> {
+    try {
+      await client.upload(remotePath, data);
+    } catch (e) {
+      new Notice(
+        `❌ 后台上传失败 ${tfile.name},已保留本地附件: ${(e as Error).message}`,
+        8000
+      );
+      return;
+    }
+    const cloud = this.insertSyntax(tfile.name, remotePath);
+    const noteFile = view.file;
+    if (!noteFile) return;
+
+    // 笔记仍打开时在编辑器内精确替换(保留光标与撤销栈),否则改写文件
+    const active = this.app.workspace.getActiveViewOfType(MarkdownView);
+    const editor =
+      active?.file?.path === noteFile.path ? active.editor : null;
+    const text = editor ? editor.getValue() : await this.app.vault.read(noteFile);
+    const idx = text.indexOf(localLink);
+    if (idx < 0) {
+      new Notice(
+        `✅ 已上传 ${tfile.name}(原文中的本地链接已被改动,未替换)`,
+        6000
+      );
+      return;
+    }
+    if (editor) {
+      const from = editor.offsetToPos(idx);
+      const to = editor.offsetToPos(idx + localLink.length);
+      editor.replaceRange(cloud, from, to);
+    } else {
+      await this.app.vault.modify(
+        noteFile,
+        text.slice(0, idx) + cloud + text.slice(idx + localLink.length)
+      );
+    }
+    new Notice(`✅ 已上传并替换: ${tfile.name}`);
   }
 
   /** 扫描当前笔记中的本地附件链接,上传后替换为云端链接 */

@@ -136,7 +136,7 @@ export class OpenListSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("粘贴/拖拽自动上传")
-      .setDesc("关闭后粘贴/拖拽走 Obsidian 默认行为(附件存入本地库),可用右键菜单或命令手动上传")
+      .setDesc("开启:先插入本地链接即时预览,后台上传成功后自动替换为云端链接;关闭:走 Obsidian 默认行为(仅存本地,可用右键或命令手动上传)")
       .addToggle((toggle) =>
         toggle.setValue(s.autoUpload).onChange(async (value) => {
           s.autoUpload = value;

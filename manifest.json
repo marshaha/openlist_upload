@@ -1,7 +1,7 @@
 {
   "id": "openlist-attach",
   "name": "OpenList Attach",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "minAppVersion": "1.4.0",
   "description": "粘贴/拖拽附件自动上传到 OpenList(AList),插入永久有效的稳定直链。支持 API 令牌或账号密码认证、文件类型过滤。",
   "author": "marshaha",
