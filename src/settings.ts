@@ -18,7 +18,7 @@ export interface OpenListAttachSettings {
 }
 
 export const DEFAULT_SETTINGS: OpenListAttachSettings = {
-  serverUrl: "https://alist.461922950.xyz",
+  serverUrl: "",
   authMode: "token",
   token: "",
   username: "",
