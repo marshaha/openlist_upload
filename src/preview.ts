@@ -34,8 +34,11 @@ let workerReady = false;
 function ensurePdfWorker(): void {
   if (workerReady) return;
   const blob = new Blob([workerRaw], { type: "text/javascript" });
+  // pdfjs v6 的 worker 是 ES Module,必须以 module 类型创建,
+  // 经典 Worker 无法解析 export 语句,会导致渲染无声卡死(白屏)
   pdfjsLib.GlobalWorkerOptions.workerPort = new Worker(
-    URL.createObjectURL(blob)
+    URL.createObjectURL(blob),
+    { type: "module" }
   );
   workerReady = true;
 }
@@ -75,6 +78,8 @@ export async function renderInlineDoc(
     // pdf.js 会把传入的 buffer transfer 给 worker(原 buffer 被 detach),
     // 缓存只存原件,每次渲染用拷贝
     const buf = cached.slice(0);
+    // 后处理器可能已重跑并替换掉本容器,避免向已脱离 DOM 的节点渲染
+    if (!el.isConnected) return;
     el.empty();
     if (kind === "pdf") await renderPdf(el, buf);
     else if (kind === "docx") await renderDocx(el, buf);
