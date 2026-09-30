@@ -1,7 +1,7 @@
 {
   "id": "openlist-attach",
   "name": "OpenList Attach",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "minAppVersion": "1.5.7",
   "description": "Upload attachments to OpenList (AList) on paste, drop, or right-click, and insert stable direct links. Supports API token or password auth and file-type filters.",
   "author": "marshaha",
