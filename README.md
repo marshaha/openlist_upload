@@ -1,5 +1,80 @@
 # OpenList Attach
 
+An Obsidian plugin that uploads attachments to [OpenList](https://github.com/OpenListTeam/OpenList) (AList) and inserts **permanent, stable direct links** into your notes.
+
+[中文说明见下文](#中文说明)
+
+## Features
+
+- **Paste to upload (optimistic insert)**: when you paste a screenshot or file, it is first saved locally and previewed instantly; once the background upload finishes, the local link is automatically replaced with the cloud link. If the upload fails, the local attachment is kept untouched. Auto-upload can be toggled off in settings.
+- **Drag & drop upload**: drop files from your system file manager into the editor to upload them.
+- **Right-click upload**: right-click any non-Markdown file in the file explorer → "Upload to OpenList and replace references". All notes referencing the file are found via the link index and rewritten to the cloud link; if nothing references it, the cloud link is copied to the clipboard.
+- **Batch upload**: command "Upload local attachments in current note" scans `![[...]]`, `![](...)` and other local links, uploads each file, and replaces the links in place (also available in the editor context menu).
+- **Two auth modes**: API token, or username/password (automatic login, re-login and retry on 401).
+- **File-type filter**: optional comma-separated extension whitelist (e.g. `png,jpg,pdf,mp4`); empty means no restriction.
+- **Naming conflict strategy**: append a timestamp (default) or keep the original name and overwrite (stable link unchanged).
+- **Link format**: images always use the `/d/` direct link (inline rendering in reading view); other file types can use either the direct link or the OpenList preview page (recommended for PDFs).
+- Built-in **connection test** button in settings.
+
+## Stable direct links
+
+Inserted links use the `/d/<path>` form, e.g.:
+
+```
+https://alist.example.com/d/189Cloud/test/photo.png
+```
+
+These links are permanent: on each visit OpenList replies with a 302 redirect to a freshly signed backend URL. Do **not** use the `raw_url` returned by the OpenList API — it expires after about 5 minutes.
+
+## Installation
+
+### Manual
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the latest Release (or clone this repo and run `npm run build`).
+2. Create `.obsidian/plugins/openlist-attach/` inside your vault and copy the three files there.
+3. Restart Obsidian and enable **OpenList Attach** under Settings → Community plugins.
+
+### BRAT
+
+Install the [BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin and add this repository.
+
+## Configuration
+
+| Setting | Description |
+| --- | --- |
+| Server URL | Your OpenList site address, e.g. `https://alist.example.com` |
+| Auth mode | API token (generated in OpenList profile settings) or username/password |
+| Remote directory | Upload target directory, default `/189Cloud/test` |
+| Auto upload on paste/drop | When off, pasting/dropping keeps Obsidian's default behavior (local only) |
+| Allowed file types | Comma-separated extension whitelist; empty means no restriction |
+| Name conflicts | Append timestamp / keep original name (overwrite, link unchanged) |
+| Non-image link format | Direct link (download) or preview page (online preview) |
+
+## Development
+
+```bash
+npm install
+npm run dev      # watch mode
+npm run build    # type check + bundle to main.js
+```
+
+`src/openlist.ts` has no Obsidian runtime dependency (HTTP is injected), so it can be unit-tested under plain Node.
+
+## CLI helper
+
+The `upload.py` at the repository root is a standalone command-line uploader (zero dependencies):
+
+```bash
+export OPENLIST_TOKEN=openlist-xxxx
+python3 upload.py --server https://alist.example.com photo.jpg /189Cloud/test
+```
+
+It prints the stable direct link plus Markdown/HTML embed snippets chosen by file type (`<img>` / `<video>` / `<audio>` / plain link).
+
+---
+
+## 中文说明
+
 Obsidian 插件:粘贴/拖拽附件自动上传到 [OpenList](https://github.com/OpenListTeam/OpenList)(AList),并在笔记中插入**永久有效的稳定直链**。
 
 ## 功能
