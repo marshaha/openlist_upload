@@ -172,7 +172,7 @@ export class OpenListSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("其他文件链接格式")
       .setDesc(
-        "直链:点击即下载;预览页:在 OpenList 站点内在线预览(PDF 推荐)。图片/视频/音频始终使用嵌入直链以保证笔记内联播放"
+        "直链:点击即下载;预览页:在 OpenList 站点内在线预览(PDF 推荐)。图片嵌入直链、视频/音频插入 HTML5 播放器标签,均内联显示"
       )
       .addDropdown((drop) =>
         drop

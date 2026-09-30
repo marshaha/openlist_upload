@@ -13,7 +13,7 @@ An Obsidian plugin that uploads attachments to [OpenList](https://github.com/Ope
 - **Two auth modes**: API token, or username/password (automatic login, re-login and retry on 401).
 - **File-type filter**: optional comma-separated extension whitelist (e.g. `png,jpg,pdf,mp4`); empty means no restriction.
 - **Naming conflict strategy**: append a timestamp (default) or keep the original name and overwrite (stable link unchanged).
-- **Link format**: images, videos, and audio always use the `/d/` direct link with embed syntax (inline player in reading view); other file types can use either the direct link or the OpenList preview page (recommended for PDFs).
+- **Link format**: images use the `/d/` direct link with `![]()` embed syntax; videos/audio are inserted as HTML5 `<video>`/`<audio>` tags (Obsidian does not support remote media embeds via `![]()`); other file types can use either the direct link or the OpenList preview page (recommended for PDFs).
 - Built-in **connection test** button in settings.
 
 ## Stable direct links
@@ -86,7 +86,7 @@ Obsidian 插件:粘贴/拖拽附件自动上传到 [OpenList](https://github.com
 - **双认证**:支持 API 令牌,也支持账号密码(自动登录换取令牌,401 自动重登重试)
 - **类型过滤**:可配置允许的扩展名白名单(如 `png,jpg,pdf,mp4`),留空不限制
 - **重名策略**:自动加时间戳防覆盖,或保留原名覆盖(直链不变)
-- **链接格式**:图片/视频/音频始终插入 `![]()` 嵌入直链(阅读模式内联渲染播放器);其他文件可选直链或 OpenList 预览页链接(PDF 在线预览推荐预览页)
+- **链接格式**:图片用 `![]()` 嵌入直链;视频/音频插入 HTML5 `<video>`/`<audio>` 标签(Obsidian 不支持 `![]()` 嵌入远程音视频);其他文件可选直链或 OpenList 预览页链接(PDF 推荐预览页)
 - 设置页内置**连接测试**按钮
 
 ## 直链说明

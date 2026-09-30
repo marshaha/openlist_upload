@@ -21,11 +21,13 @@ const IMAGE_EXTS = new Set([
 const VIDEO_EXTS = new Set(["mp4", "webm", "mov", "mkv", "avi", "m4v"]);
 const AUDIO_EXTS = new Set(["mp3", "wav", "ogg", "flac", "m4a", "aac"]);
 
-/** 云端链接可用 ! 前缀嵌入的类型(阅读模式内联渲染图片/播放器) */
-const CLOUD_EMBED_EXTS = new Set([...IMAGE_EXTS, ...VIDEO_EXTS, ...AUDIO_EXTS]);
-
 /** 本地链接可用 ! 前缀嵌入预览的类型(与 Obsidian 原生粘贴一致) */
-const EMBED_EXTS = new Set([...CLOUD_EMBED_EXTS, "pdf"]);
+const EMBED_EXTS = new Set([
+  ...IMAGE_EXTS,
+  ...VIDEO_EXTS,
+  ...AUDIO_EXTS,
+  "pdf",
+]);
 
 /** 剪贴板截图常见的无意义文件名 */
 const GENERIC_NAME = /^(image|pasted image|截图|图片)[ .]/i;
@@ -167,16 +169,29 @@ export default class OpenListAttachPlugin extends Plugin {
     return dir === "/" ? `/${finalName}` : `${dir}/${finalName}`;
   }
 
-  /** 生成插入笔记的语法。图片/视频/音频用 ! 嵌入直链以保内联渲染;其他类型按设置选直链/预览页 */
+  /**
+   * 生成插入笔记的语法。
+   * 图片用 ! 嵌入直链;视频/音频插 HTML5 标签(Obsidian 对外部
+   * 视频的 ![]() 会按 <img> 渲染成破图,只有 HTML 标签能内联播放);
+   * 其他类型按设置选直链/预览页。
+   */
   private insertSyntax(name: string, remotePath: string, alt?: string): string {
     const client = this.makeClient();
-    if (CLOUD_EMBED_EXTS.has(extOf(name))) {
-      return `![${alt ?? stemOf(name)}](${client.directLink(remotePath)})`;
+    const ext = extOf(name);
+    const direct = client.directLink(remotePath);
+    if (IMAGE_EXTS.has(ext)) {
+      return `![${alt ?? stemOf(name)}](${direct})`;
+    }
+    if (VIDEO_EXTS.has(ext)) {
+      return `<video controls src="${direct}" style="max-width:100%"></video>`;
+    }
+    if (AUDIO_EXTS.has(ext)) {
+      return `<audio controls src="${direct}"></audio>`;
     }
     const link =
       this.settings.linkType === "preview"
         ? client.previewLink(remotePath)
-        : client.directLink(remotePath);
+        : direct;
     return `[${alt ?? name}](${link})`;
   }
 
