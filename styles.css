@@ -49,3 +49,38 @@
   border: 1px solid var(--background-modifier-border);
   padding: 2px 8px;
 }
+
+/* PDF 查看器(工具栏 + 滚动容器) */
+.openlist-pdf-toolbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.openlist-pdf-toolbar button {
+  padding: 2px 10px;
+  cursor: pointer;
+}
+
+.openlist-pdf-toolbar .openlist-pdf-page {
+  min-width: 64px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.openlist-pdf-container {
+  position: relative;
+  overflow: auto;
+  height: 70vh;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+}
+
+.openlist-doc-embed .openlist-pdf-container {
+  height: 560px;
+}
+
+.openlist-pdf-container .loadingIcon {
+  display: none;
+}

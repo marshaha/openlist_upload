@@ -39,7 +39,7 @@ const context = await esbuild.context({
   banner: { js: banner },
   entryPoints: ["src/main.ts"],
   bundle: true,
-  loader: { ".txt": "text" },
+  loader: { ".txt": "text", ".css": "text" },
   // jszip 依赖的 setimmediate 包含 <script> 注入回退,用微任务 shim 替换
   alias: { setimmediate: path.resolve("src/shims/setimmediate.ts") },
   plugins: [stripDeadScriptPolyfill],

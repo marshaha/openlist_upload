@@ -1,6 +1,6 @@
 {
   "name": "openlist-attach",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "description": "Upload attachments to OpenList and insert stable direct links into notes",
   "main": "main.js",
   "scripts": {

@@ -5,6 +5,12 @@
  */
 import { App, Modal, requestUrl, sanitizeHTMLToDom } from "obsidian";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import {
+  EventBus,
+  PDFLinkService,
+  PDFViewer,
+} from "pdfjs-dist/web/pdf_viewer.mjs";
+import viewerCss from "pdfjs-dist/web/pdf_viewer.css";
 import { renderAsync as renderDocxAsync } from "docx-preview";
 import { init as initPptxPreview } from "pptx-preview";
 import * as XLSX from "xlsx";
@@ -41,6 +47,75 @@ function ensurePdfWorker(): void {
     { type: "module" }
   );
   workerReady = true;
+}
+
+let viewerCssReady = false;
+function injectViewerCss(): void {
+  if (viewerCssReady) return;
+  const style = document.createElement("style");
+  style.textContent = viewerCss;
+  document.head.appendChild(style);
+  viewerCssReady = true;
+}
+
+/** PDF.js 查看器组件:连续滚动、按需渲染、文本可选,带翻页/缩放工具栏 */
+async function renderPdf(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
+  ensurePdfWorker();
+  injectViewerCss();
+
+  const toolbar = el.createDiv("openlist-pdf-toolbar");
+  const container = el.createDiv("openlist-pdf-container");
+  container.createDiv("pdfViewer");
+
+  const eventBus = new EventBus();
+  const linkService = new PDFLinkService({ eventBus });
+  const viewer = new PDFViewer({
+    container,
+    eventBus,
+    linkService,
+    textLayerMode: 1,
+  });
+  linkService.setViewer(viewer);
+
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) })
+    .promise;
+
+  const mkBtn = (text: string, tooltip: string, onClick: () => void) => {
+    const b = toolbar.createEl("button", { text });
+    b.setAttribute("aria-label", tooltip);
+    b.addEventListener("click", onClick);
+    return b;
+  };
+  mkBtn("‹", "上一页", () => {
+    viewer.currentPageNumber = Math.max(1, viewer.currentPageNumber - 1);
+  });
+  const pageLabel = toolbar.createSpan("openlist-pdf-page");
+  pageLabel.setText(`1 / ${doc.numPages}`);
+  mkBtn("›", "下一页", () => {
+    viewer.currentPageNumber = Math.min(
+      doc.numPages,
+      viewer.currentPageNumber + 1
+    );
+  });
+  mkBtn("−", "缩小", () => {
+    viewer.currentScaleValue = String(
+      Math.max(0.25, viewer.currentScale * 0.8)
+    );
+  });
+  mkBtn("＋", "放大", () => {
+    viewer.currentScaleValue = String(viewer.currentScale * 1.25);
+  });
+  mkBtn("适宽", "适合宽度", () => {
+    viewer.currentScaleValue = "page-width";
+  });
+
+  eventBus.on("pagechanging", (e: { pageNumber: number }) => {
+    pageLabel.setText(`${e.pageNumber} / ${doc.numPages}`);
+  });
+
+  viewer.setDocument(doc);
+  linkService.setDocument(doc, null);
+  viewer.currentScaleValue = "page-width";
 }
 
 async function fetchBytes(url: string): Promise<ArrayBuffer> {
@@ -87,22 +162,6 @@ export async function renderInlineDoc(
     else await renderXlsx(el, buf);
   } catch (e) {
     el.setText(`预览失败: ${(e as Error).message}`);
-  }
-}
-
-async function renderPdf(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
-  ensurePdfWorker();
-  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) })
-    .promise;
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i);
-    const viewport = page.getViewport({ scale: 1.5 });
-    const canvas = el.createEl("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) continue;
-    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
   }
 }
 
