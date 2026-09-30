@@ -99,7 +99,7 @@ export default class OpenListAttachPlugin extends Plugin {
 
     this.addCommand({
       id: "preview-doc-at-cursor",
-      name: "本地预览光标处的云端文档(PDF/DOCX/XLSX)",
+      name: "本地预览光标处的云端文档(PDF/DOCX/XLSX/PPTX)",
       callback: () => this.previewDocAtCursor(),
     });
 
@@ -374,7 +374,7 @@ export default class OpenListAttachPlugin extends Plugin {
         return;
       }
     }
-    new Notice("当前行没有可预览的云端文档链接(PDF/DOCX/XLSX)");
+    new Notice("当前行没有可预览的云端文档链接(PDF/DOCX/XLSX/PPTX)");
   }
 
   /** 扫描当前笔记中的本地附件链接,上传后替换为云端链接 */

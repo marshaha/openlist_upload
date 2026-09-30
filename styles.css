@@ -26,3 +26,9 @@
   border: 1px solid var(--background-modifier-border);
   padding: 2px 8px;
 }
+
+.openlist-doc-preview-body .openlist-pptx {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0 auto;
+}

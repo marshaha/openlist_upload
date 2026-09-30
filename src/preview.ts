@@ -6,10 +6,11 @@
 import { App, Modal, requestUrl, sanitizeHTMLToDom } from "obsidian";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { renderAsync as renderDocxAsync } from "docx-preview";
+import { init as initPptxPreview } from "pptx-preview";
 import * as XLSX from "xlsx";
 import workerRaw from "./pdf.worker.txt";
 
-export type PreviewKind = "pdf" | "docx" | "xlsx";
+export type PreviewKind = "pdf" | "docx" | "xlsx" | "pptx";
 
 /** 判断 URL 是否为可本地预览的文档类型 */
 export function previewKindOf(url: string): PreviewKind | null {
@@ -25,6 +26,7 @@ export function previewKindOf(url: string): PreviewKind | null {
   if (ext === "pdf") return "pdf";
   if (ext === "docx") return "docx";
   if (ext === "xls" || ext === "xlsx") return "xlsx";
+  if (ext === "pptx") return "pptx";
   return null;
 }
 
@@ -81,6 +83,16 @@ async function renderXlsx(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
   }
 }
 
+async function renderPptx(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
+  const holder = el.createDiv("openlist-pptx");
+  const previewer = initPptxPreview(holder, {
+    width: 960,
+    height: 540,
+    mode: "list",
+  });
+  await previewer.preview(buf);
+}
+
 export class DocPreviewModal extends Modal {
   constructor(
     app: App,
@@ -107,6 +119,7 @@ export class DocPreviewModal extends Modal {
         body.empty();
         if (this.kind === "pdf") await renderPdf(body, buf);
         else if (this.kind === "docx") await renderDocx(body, buf);
+        else if (this.kind === "pptx") await renderPptx(body, buf);
         else await renderXlsx(body, buf);
       } catch (e) {
         body.setText(`预览失败: ${(e as Error).message}`);

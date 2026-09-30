@@ -1,6 +1,6 @@
 {
   "name": "openlist-attach",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Upload attachments to OpenList and insert stable direct links into notes",
   "main": "main.js",
   "scripts": {
@@ -25,6 +25,7 @@
   "dependencies": {
     "docx-preview": "^0.4.1",
     "pdfjs-dist": "^6.3.289",
+    "pptx-preview": "^1.0.7",
     "xlsx": "^0.18.5"
   }
 }

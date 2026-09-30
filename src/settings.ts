@@ -146,7 +146,7 @@ export class OpenListSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("本地预览云端文档")
-      .setDesc("点击指向本服务器的 PDF/DOCX/XLSX 链接时,在 Obsidian 内本地渲染预览(查看器随插件打包,文件不经过第三方服务);关闭则交给浏览器")
+      .setDesc("点击指向本服务器的 PDF/DOCX/XLSX/PPTX 链接时,在 Obsidian 内本地渲染预览(查看器随插件打包,文件不经过第三方服务);关闭则交给浏览器")
       .addToggle((toggle) =>
         toggle.setValue(s.localPreview).onChange(async (value) => {
           s.localPreview = value;
