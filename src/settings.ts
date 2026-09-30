@@ -1,7 +1,7 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type OpenListAttachPlugin from "./main";
 
-export type LinkType = "direct" | "preview";
+export type LinkType = "direct" | "preview" | "iframe";
 export type ConflictStrategy = "keep" | "timestamp";
 
 export interface OpenListAttachSettings {
@@ -172,12 +172,13 @@ export class OpenListSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("其他文件链接格式")
       .setDesc(
-        "直链:点击即下载;预览页:在 OpenList 站点内在线预览(PDF 推荐)。图片嵌入直链、视频/音频插入 HTML5 播放器标签,均内联显示"
+        "直链:点击即下载;预览页:在 OpenList 站点内在线预览;内联预览:iframe 嵌入查看器直接显示在笔记里(PDF/Office 适用)。图片嵌入直链、视频/音频插入 HTML5 播放器标签"
       )
       .addDropdown((drop) =>
         drop
           .addOption("direct", "直链 (/d/ 路径)")
           .addOption("preview", "预览页 (OpenList 站点)")
+          .addOption("iframe", "内联预览 (iframe 嵌入)")
           .setValue(s.linkType)
           .onChange(async (value) => {
             s.linkType = value as LinkType;

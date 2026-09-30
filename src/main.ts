@@ -20,6 +20,11 @@ const IMAGE_EXTS = new Set([
 
 const VIDEO_EXTS = new Set(["mp4", "webm", "mov", "mkv", "avi", "m4v"]);
 const AUDIO_EXTS = new Set(["mp3", "wav", "ogg", "flac", "m4a", "aac"]);
+const OFFICE_EXTS = new Set(["doc", "docx", "xls", "xlsx", "ppt", "pptx"]);
+
+/** PDF.js 与微软 Office Online 查看器,经 /d/ 直链加载文件(已验证 CORS 与 Range 可用) */
+const PDF_JS_VIEWER = "https://alist-org.github.io/pdf.js/web/viewer.html?url=";
+const MS_OFFICE_VIEWER = "https://view.officeapps.live.com/op/view.aspx?src=";
 
 /** 本地链接可用 ! 前缀嵌入预览的类型(与 Obsidian 原生粘贴一致) */
 const EMBED_EXTS = new Set([
@@ -187,6 +192,16 @@ export default class OpenListAttachPlugin extends Plugin {
     }
     if (AUDIO_EXTS.has(ext)) {
       return `<audio controls src="${direct}"></audio>`;
+    }
+    if (this.settings.linkType === "iframe") {
+      const style = 'style="width:100%;height:600px;border:none"';
+      if (ext === "pdf") {
+        return `<iframe src="${PDF_JS_VIEWER}${encodeURIComponent(direct)}" ${style}></iframe>`;
+      }
+      if (OFFICE_EXTS.has(ext)) {
+        return `<iframe src="${MS_OFFICE_VIEWER}${encodeURIComponent(direct)}" ${style}></iframe>`;
+      }
+      // 其他类型无查看器,回退为直链
     }
     const link =
       this.settings.linkType === "preview"
