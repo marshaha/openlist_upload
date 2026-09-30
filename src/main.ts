@@ -6,6 +6,7 @@ import {
   requestUrl,
 } from "obsidian";
 import { HttpRequest, OpenListClient } from "./openlist";
+import { DocPreviewModal, previewKindOf } from "./preview";
 import {
   DEFAULT_SETTINGS,
   OpenListAttachSettings,
@@ -94,6 +95,27 @@ export default class OpenListAttachPlugin extends Plugin {
       id: "upload-note-attachments",
       name: "上传当前笔记中的本地附件到 OpenList",
       callback: () => void this.uploadNoteAttachments(),
+    });
+
+    this.addCommand({
+      id: "preview-doc-at-cursor",
+      name: "本地预览光标处的云端文档(PDF/DOCX/XLSX)",
+      callback: () => this.previewDocAtCursor(),
+    });
+
+    // 点击指向本服务器的文档链接时,本地渲染预览,不外跳浏览器
+    this.registerDomEvent(document, "click", (evt) => {
+      if (!this.settings.localPreview || !this.settings.serverUrl) return;
+      const target = evt.target as HTMLElement | null;
+      const a = target?.closest?.("a.external-link");
+      const href =
+        a?.getAttribute("href") ?? a?.getAttribute("data-href") ?? "";
+      if (!href.startsWith(this.settings.serverUrl)) return;
+      const kind = previewKindOf(href);
+      if (!kind) return;
+      evt.preventDefault();
+      evt.stopPropagation();
+      new DocPreviewModal(this.app, href, kind).open();
     });
 
     this.registerEvent(
@@ -333,6 +355,26 @@ export default class OpenListAttachPlugin extends Plugin {
       );
     }
     new Notice(`✅ 已上传并替换: ${tfile.name}`);
+  }
+
+  /** 命令:预览光标所在行里的第一个云端文档链接 */
+  private previewDocAtCursor(): void {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!view) {
+      new Notice("没有打开的 Markdown 笔记");
+      return;
+    }
+    const line = view.editor.getLine(view.editor.getCursor().line);
+    const re = /https?:\/\/[^\s)>"']+/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(line)) !== null) {
+      const kind = previewKindOf(m[0]);
+      if (kind && m[0].startsWith(this.settings.serverUrl)) {
+        new DocPreviewModal(this.app, m[0], kind).open();
+        return;
+      }
+    }
+    new Notice("当前行没有可预览的云端文档链接(PDF/DOCX/XLSX)");
   }
 
   /** 扫描当前笔记中的本地附件链接,上传后替换为云端链接 */

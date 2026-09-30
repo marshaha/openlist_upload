@@ -1,1 +1,28 @@
-/* OpenList Attach - 暂无自定义样式,保留文件以符合插件发布约定 */
+/* OpenList Attach - 本地文档预览弹窗 */
+.openlist-doc-preview {
+  width: 92vw;
+  max-width: 1100px;
+  height: 88vh;
+}
+
+.openlist-doc-preview .modal-content {
+  height: 100%;
+  overflow: auto;
+}
+
+.openlist-doc-preview-body canvas {
+  display: block;
+  margin: 0 auto 12px;
+  max-width: 100%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.openlist-doc-preview-body table {
+  border-collapse: collapse;
+}
+
+.openlist-doc-preview-body table td,
+.openlist-doc-preview-body table th {
+  border: 1px solid var(--background-modifier-border);
+  padding: 2px 8px;
+}
