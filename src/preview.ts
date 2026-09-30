@@ -71,7 +71,10 @@ export async function renderInlineDoc(
   kind: PreviewKind
 ): Promise<void> {
   try {
-    const buf = await fetchBytesCached(url);
+    const cached = await fetchBytesCached(url);
+    // pdf.js 会把传入的 buffer transfer 给 worker(原 buffer 被 detach),
+    // 缓存只存原件,每次渲染用拷贝
+    const buf = cached.slice(0);
     el.empty();
     if (kind === "pdf") await renderPdf(el, buf);
     else if (kind === "docx") await renderDocx(el, buf);
