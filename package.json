@@ -1,6 +1,6 @@
 {
   "name": "openlist-attach",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Upload attachments to OpenList and insert stable direct links into notes",
   "main": "main.js",
   "scripts": {
@@ -17,7 +17,6 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "builtin-modules": "^4.0.0",
     "esbuild": "^0.24.2",
     "obsidian": "^1.7.2",
     "tslib": "^2.8.1",

@@ -57,6 +57,7 @@ export default class OpenListAttachPlugin extends Plugin {
 
     this.registerEvent(
       this.app.workspace.on("editor-paste", (evt, editor, view) => {
+        if (evt.defaultPrevented) return;
         if (!this.settings.autoUpload) return;
         if (!(view instanceof MarkdownView)) return;
         const files = evt.clipboardData?.files;
@@ -68,6 +69,7 @@ export default class OpenListAttachPlugin extends Plugin {
 
     this.registerEvent(
       this.app.workspace.on("editor-drop", (evt, editor, view) => {
+        if (evt.defaultPrevented) return;
         if (!this.settings.autoUpload) return;
         if (!(view instanceof MarkdownView)) return;
         const files = evt.dataTransfer?.files;
@@ -117,7 +119,7 @@ export default class OpenListAttachPlugin extends Plugin {
     this.settings = Object.assign(
       {},
       DEFAULT_SETTINGS,
-      await this.loadData()
+      (await this.loadData()) as Partial<OpenListAttachSettings> | null
     );
     this.settings.remoteDir = normalizeDir(this.settings.remoteDir);
   }

@@ -58,7 +58,7 @@ export class OpenListSettingTab extends PluginSettingTab {
     containerEl.empty();
     const s = this.plugin.settings;
 
-    containerEl.createEl("h2", { text: "OpenList Attach 设置" });
+    new Setting(containerEl).setName("OpenList Attach 设置").setHeading();
 
     new Setting(containerEl)
       .setName("服务器地址")
