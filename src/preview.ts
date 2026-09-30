@@ -1,11 +1,11 @@
 /**
- * 本地文档预览:PDF 用 pdfjs-dist 渲染,DOCX 用 mammoth 转 HTML,
- * XLS/XLSX 用 SheetJS 转 HTML。查看器代码全部随插件打包,
+ * 本地文档预览:PDF 用 pdfjs-dist 渲染,DOCX 用 docx-preview
+ * 还原排版,XLS/XLSX 用 SheetJS 转 HTML。查看器代码全部随插件打包,
  * 文件字节仅在 OpenList 服务器与 Obsidian 之间流动,不经过第三方服务。
  */
 import { App, Modal, requestUrl, sanitizeHTMLToDom } from "obsidian";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import * as mammoth from "mammoth";
+import { renderAsync as renderDocxAsync } from "docx-preview";
 import * as XLSX from "xlsx";
 import workerRaw from "./pdf.worker.txt";
 
@@ -63,8 +63,11 @@ async function renderPdf(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
 }
 
 async function renderDocx(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
-  const { value } = await mammoth.convertToHtml({ arrayBuffer: buf });
-  el.appendChild(sanitizeHTMLToDom(value));
+  // docx-preview 直接向容器内渲染,保留原文档排版/表格/图片
+  await renderDocxAsync(buf, el, undefined, {
+    className: "openlist-docx",
+    inWrapper: true,
+  });
 }
 
 async function renderXlsx(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
