@@ -48,6 +48,40 @@ async function fetchBytes(url: string): Promise<ArrayBuffer> {
   return resp.arrayBuffer;
 }
 
+// 阅读模式后处理器会频繁重跑,缓存文件字节避免重复下载
+const byteCache = new Map<string, ArrayBuffer>();
+const BYTE_CACHE_MAX = 10;
+
+async function fetchBytesCached(url: string): Promise<ArrayBuffer> {
+  const hit = byteCache.get(url);
+  if (hit) return hit;
+  const buf = await fetchBytes(url);
+  if (byteCache.size >= BYTE_CACHE_MAX) {
+    const oldest = byteCache.keys().next().value;
+    if (oldest !== undefined) byteCache.delete(oldest);
+  }
+  byteCache.set(url, buf);
+  return buf;
+}
+
+/** 供阅读模式后处理器调用:把云端文档原地渲染进容器 */
+export async function renderInlineDoc(
+  el: HTMLElement,
+  url: string,
+  kind: PreviewKind
+): Promise<void> {
+  try {
+    const buf = await fetchBytesCached(url);
+    el.empty();
+    if (kind === "pdf") await renderPdf(el, buf);
+    else if (kind === "docx") await renderDocx(el, buf);
+    else if (kind === "pptx") await renderPptx(el, buf);
+    else await renderXlsx(el, buf);
+  } catch (e) {
+    el.setText(`预览失败: ${(e as Error).message}`);
+  }
+}
+
 async function renderPdf(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
   ensurePdfWorker();
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) })
@@ -113,17 +147,6 @@ export class DocPreviewModal extends Modal {
     this.modalEl.addClass("openlist-doc-preview");
     const body = this.contentEl.createDiv("openlist-doc-preview-body");
     body.setText("加载中…");
-    void (async () => {
-      try {
-        const buf = await fetchBytes(this.url);
-        body.empty();
-        if (this.kind === "pdf") await renderPdf(body, buf);
-        else if (this.kind === "docx") await renderDocx(body, buf);
-        else if (this.kind === "pptx") await renderPptx(body, buf);
-        else await renderXlsx(body, buf);
-      } catch (e) {
-        body.setText(`预览失败: ${(e as Error).message}`);
-      }
-    })();
+    void renderInlineDoc(body, this.url, this.kind);
   }
 }

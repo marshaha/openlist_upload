@@ -6,7 +6,7 @@ import {
   requestUrl,
 } from "obsidian";
 import { HttpRequest, OpenListClient } from "./openlist";
-import { DocPreviewModal, previewKindOf } from "./preview";
+import { DocPreviewModal, previewKindOf, renderInlineDoc } from "./preview";
 import {
   DEFAULT_SETTINGS,
   OpenListAttachSettings,
@@ -101,6 +101,22 @@ export default class OpenListAttachPlugin extends Plugin {
       id: "preview-doc-at-cursor",
       name: "本地预览光标处的云端文档(PDF/DOCX/XLSX/PPTX)",
       callback: () => this.previewDocAtCursor(),
+    });
+
+    // 阅读模式:把 ![]() 嵌入的本服务器文档链接原地本地渲染
+    this.registerMarkdownPostProcessor((el) => {
+      if (!this.settings.inlineDocEmbed || !this.settings.serverUrl) return;
+      const imgs = el.querySelectorAll("img");
+      for (const img of Array.from(imgs)) {
+        const src = img.getAttribute("src") ?? "";
+        if (!src.startsWith(this.settings.serverUrl)) continue;
+        const kind = previewKindOf(src);
+        if (!kind) continue;
+        const holder = el.createDiv("openlist-doc-embed");
+        holder.setText("加载中…");
+        img.replaceWith(holder);
+        void renderInlineDoc(holder, src, kind);
+      }
     });
 
     // 点击指向本服务器的文档链接时,本地渲染预览,不外跳浏览器
@@ -224,6 +240,10 @@ export default class OpenListAttachPlugin extends Plugin {
         return `<iframe src="${MS_OFFICE_VIEWER}${encodeURIComponent(direct)}" ${style}></iframe>`;
       }
       // 其他类型无查看器,回退为直链
+    }
+    // 本地内联:![]() 嵌入语法,由阅读模式后处理器原地渲染
+    if (this.settings.linkType === "embed" && previewKindOf(direct)) {
+      return `![${alt ?? name}](${direct})`;
     }
     const link =
       this.settings.linkType === "preview"

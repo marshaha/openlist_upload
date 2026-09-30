@@ -13,7 +13,7 @@ An Obsidian plugin that uploads attachments to [OpenList](https://github.com/Ope
 - **Two auth modes**: API token, or username/password (automatic login, re-login and retry on 401).
 - **File-type filter**: optional comma-separated extension whitelist (e.g. `png,jpg,pdf,mp4`); empty means no restriction.
 - **Naming conflict strategy**: append a timestamp (default) or keep the original name and overwrite (stable link unchanged).
-- **Link format**: images use the `/d/` direct link with `![]()` embed syntax; videos/audio are inserted as HTML5 `<video>`/`<audio>` tags (Obsidian does not support remote media embeds via `![]()`); other file types can use the direct link, the OpenList preview page, or an inline iframe preview (PDF via PDF.js, Office docs via Microsoft Office Online viewer).
+- **Link format**: images use the `/d/` direct link with `![]()` embed syntax; videos/audio are inserted as HTML5 `<video>`/`<audio>` tags (Obsidian does not support remote media embeds via `![]()`); other file types can use the direct link, the OpenList preview page, an inline iframe preview (PDF via PDF.js, Office docs via Microsoft Office Online viewer), or **local inline embed** — `![]()` embeds of PDF/DOCX/XLSX/PPTX links are rendered in place in reading view by the local engines, no third party involved.
 - **Local document preview**: clicking a PDF/DOCX/XLSX/PPTX link pointing to your server opens a local in-Obsidian preview — PDF rendered by pdf.js, DOCX by docx-preview (layout-preserving), XLSX by SheetJS, PPTX by pptx-preview. Viewer code ships with the plugin; file bytes travel only between your server and Obsidian, never through third-party viewer services. Can be toggled off in settings.
 - Built-in **connection test** button in settings.
 
@@ -87,7 +87,7 @@ Obsidian 插件:粘贴/拖拽附件自动上传到 [OpenList](https://github.com
 - **双认证**:支持 API 令牌,也支持账号密码(自动登录换取令牌,401 自动重登重试)
 - **类型过滤**:可配置允许的扩展名白名单(如 `png,jpg,pdf,mp4`),留空不限制
 - **重名策略**:自动加时间戳防覆盖,或保留原名覆盖(直链不变)
-- **链接格式**:图片用 `![]()` 嵌入直链;视频/音频插入 HTML5 `<video>`/`<audio>` 标签(Obsidian 不支持 `![]()` 嵌入远程音视频);其他文件可选直链、OpenList 预览页链接,或 iframe 内联预览(PDF 走 PDF.js、Office 文档走微软 Office Online 查看器,直接显示在笔记里)
+- **链接格式**:图片用 `![]()` 嵌入直链;视频/音频插入 HTML5 `<video>`/`<audio>` 标签(Obsidian 不支持 `![]()` 嵌入远程音视频);其他文件可选直链、OpenList 预览页链接、iframe 在线查看器,或**本地内联**——PDF/DOCX/XLSX/PPTX 的 `![]()` 嵌入链接在阅读模式正文里由本地引擎原地渲染,不经过第三方
 - **本地文档预览**:点击指向本服务器的 PDF/DOCX/XLSX/PPTX 链接,直接在 Obsidian 内本地渲染(PDF 用 pdf.js、DOCX 用 docx-preview(还原排版)、XLSX 用 SheetJS、PPTX 用 pptx-preview),查看器代码随插件打包,文件字节只在你的服务器与 Obsidian 之间流动,不经过任何第三方查看器。可在设置中关闭
 - 设置页内置**连接测试**按钮
 

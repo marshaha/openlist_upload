@@ -10,10 +10,12 @@
   overflow: auto;
 }
 
-.openlist-doc-preview-body canvas {
+.openlist-doc-preview-body canvas,
+.openlist-doc-embed canvas {
   display: block;
   margin: 0 auto 12px;
   max-width: 100%;
+  height: auto;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
@@ -31,4 +33,19 @@
   max-width: 100%;
   overflow-x: auto;
   margin: 0 auto;
+}
+
+.openlist-doc-embed {
+  margin: 8px 0;
+  overflow-x: auto;
+}
+
+.openlist-doc-embed table {
+  border-collapse: collapse;
+}
+
+.openlist-doc-embed table td,
+.openlist-doc-embed table th {
+  border: 1px solid var(--background-modifier-border);
+  padding: 2px 8px;
 }

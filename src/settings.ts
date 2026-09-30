@@ -1,7 +1,7 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type OpenListAttachPlugin from "./main";
 
-export type LinkType = "direct" | "preview" | "iframe";
+export type LinkType = "direct" | "preview" | "iframe" | "embed";
 export type ConflictStrategy = "keep" | "timestamp";
 
 export interface OpenListAttachSettings {
@@ -14,6 +14,8 @@ export interface OpenListAttachSettings {
   /** 粘贴/拖拽时自动上传;关闭则走 Obsidian 默认(存入本地库) */
   autoUpload: boolean;
   localPreview: boolean;
+  /** 阅读模式下把 ![]() 嵌入的云端文档链接原地本地渲染 */
+  inlineDocEmbed: boolean;
   /** 逗号分隔的扩展名(不带点),留空表示不限制 */
   allowedExts: string;
   conflictStrategy: ConflictStrategy;
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: OpenListAttachSettings = {
   remoteDir: "/189Cloud/test",
   autoUpload: true,
   localPreview: true,
+  inlineDocEmbed: true,
   allowedExts: "",
   conflictStrategy: "timestamp",
   linkType: "direct",
@@ -184,18 +187,29 @@ export class OpenListSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("其他文件链接格式")
       .setDesc(
-        "直链:点击即下载;预览页:在 OpenList 站点内在线预览;内联预览:iframe 嵌入查看器直接显示在笔记里(PDF/Office 适用)。图片嵌入直链、视频/音频插入 HTML5 播放器标签"
+        "直链:点击即下载;预览页:在 OpenList 站点内在线预览;内联预览:iframe 嵌入在线查看器;本地内联:插入 ![]() 嵌入语法,阅读模式正文直接本地渲染(PDF/DOCX/XLSX/PPTX)。图片嵌入直链、视频/音频插入 HTML5 播放器标签"
       )
       .addDropdown((drop) =>
         drop
           .addOption("direct", "直链 (/d/ 路径)")
           .addOption("preview", "预览页 (OpenList 站点)")
-          .addOption("iframe", "内联预览 (iframe 嵌入)")
+          .addOption("iframe", "内联预览 (iframe 在线查看器)")
+          .addOption("embed", "本地内联 (![]() 正文直接显示)")
           .setValue(s.linkType)
           .onChange(async (value) => {
             s.linkType = value as LinkType;
             await this.plugin.saveSettings();
           })
+      );
+
+    new Setting(containerEl)
+      .setName("正文内联渲染云端文档")
+      .setDesc("阅读模式下,把 ![]() 嵌入的本服务器 PDF/DOCX/XLSX/PPTX 链接原地渲染为本地内容(不经过第三方);关闭则保持普通嵌入行为")
+      .addToggle((toggle) =>
+        toggle.setValue(s.inlineDocEmbed).onChange(async (value) => {
+          s.inlineDocEmbed = value;
+          await this.plugin.saveSettings();
+        })
       );
 
     new Setting(containerEl)
