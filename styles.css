@@ -69,16 +69,21 @@
   color: var(--text-muted);
 }
 
-.openlist-pdf-container {
+.openlist-pdf-wrapper {
   position: relative;
-  overflow: auto;
   height: 70vh;
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
 }
 
-.openlist-doc-embed .openlist-pdf-container {
+.openlist-doc-embed .openlist-pdf-wrapper {
   height: 560px;
+}
+
+.openlist-pdf-container {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
 }
 
 .openlist-pdf-container .loadingIcon {

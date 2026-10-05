@@ -64,7 +64,9 @@ async function renderPdf(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
   injectViewerCss();
 
   const toolbar = el.createDiv("openlist-pdf-toolbar");
-  const container = el.createDiv("openlist-pdf-container");
+  // PDFViewer 要求容器绝对定位:relative 外壳定尺寸,absolute 容器填滚
+  const wrapper = el.createDiv("openlist-pdf-wrapper");
+  const container = wrapper.createDiv("openlist-pdf-container");
   container.createDiv("pdfViewer");
 
   const eventBus = new EventBus();
