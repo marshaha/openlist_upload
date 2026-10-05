@@ -3,7 +3,7 @@
  * 还原排版,XLS/XLSX 用 SheetJS 转 HTML。查看器代码全部随插件打包,
  * 文件字节仅在 OpenList 服务器与 Obsidian 之间流动,不经过第三方服务。
  */
-import { App, Modal, requestUrl, sanitizeHTMLToDom } from "obsidian";
+import { App, Modal, requestUrl } from "obsidian";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import {
   EventBus,
@@ -82,6 +82,9 @@ async function renderPdf(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) })
     .promise;
 
+  // 手动缩放后不再跟随宽度;「适宽」复位为跟随
+  let manualZoom = false;
+
   const mkBtn = (text: string, tooltip: string, onClick: () => void) => {
     const b = toolbar.createEl("button", { text });
     b.setAttribute("aria-label", tooltip);
@@ -100,14 +103,17 @@ async function renderPdf(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
     );
   });
   mkBtn("−", "缩小", () => {
+    manualZoom = true;
     viewer.currentScaleValue = String(
       Math.max(0.25, viewer.currentScale * 0.8)
     );
   });
   mkBtn("＋", "放大", () => {
+    manualZoom = true;
     viewer.currentScaleValue = String(viewer.currentScale * 1.25);
   });
   mkBtn("适宽", "适合宽度", () => {
+    manualZoom = false;
     viewer.currentScaleValue = "page-width";
   });
 
@@ -118,6 +124,16 @@ async function renderPdf(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
   viewer.setDocument(doc);
   linkService.setDocument(doc, null);
   viewer.currentScaleValue = "page-width";
+
+  // 容器宽度变化时自动重新适宽(除非用户手动缩放过)
+  const ro = new ResizeObserver(() => {
+    if (!wrapper.isConnected) {
+      ro.disconnect();
+      return;
+    }
+    if (!manualZoom) viewer.currentScaleValue = "page-width";
+  });
+  ro.observe(wrapper);
 }
 
 async function fetchBytes(url: string): Promise<ArrayBuffer> {
@@ -168,32 +184,137 @@ export async function renderInlineDoc(
 }
 
 async function renderDocx(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
-  // docx-preview 直接向容器内渲染,保留原文档排版/表格/图片
+  // docx-preview 直接向容器内渲染;ignoreWidth 使版面宽度跟随容器
   await renderDocxAsync(buf, el, undefined, {
     className: "openlist-docx",
     inWrapper: true,
+    ignoreWidth: true,
   });
 }
 
-async function renderXlsx(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
-  const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
-  for (const name of wb.SheetNames) {
-    el.createEl("h4", { text: name });
-    const holder = el.createDiv();
-    holder.appendChild(
-      sanitizeHTMLToDom(XLSX.utils.sheet_to_html(wb.Sheets[name]))
-    );
+/** 单元格背景色 → 若背景偏深则文字反白(SheetJS CE 读不到字体颜色) */
+function fgForBackground(rgb: string): string | null {
+  const hex = rgb.slice(-6);
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  if ([r, g, b].some(Number.isNaN)) return null;
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance < 140 ? "#ffffff" : null;
+}
+
+function renderXlsxSheet(
+  el: HTMLElement,
+  wb: XLSX.WorkBook,
+  name: string
+): void {
+  const ws = wb.Sheets[name];
+  const ref = ws["!ref"];
+  if (!ref) {
+    el.setText("(空表)");
+    return;
   }
+  const range = XLSX.utils.decode_range(ref);
+
+  // 合并单元格:起始格记录跨行/列,被覆盖格跳过
+  const mergeStart = new Map<string, { rs: number; cs: number }>();
+  const merged = new Set<string>();
+  for (const m of ws["!merges"] ?? []) {
+    mergeStart.set(`${m.s.r},${m.s.c}`, {
+      rs: m.e.r - m.s.r + 1,
+      cs: m.e.c - m.s.c + 1,
+    });
+    for (let r = m.s.r; r <= m.e.r; r++) {
+      for (let c = m.s.c; c <= m.e.c; c++) {
+        if (r !== m.s.r || c !== m.s.c) merged.add(`${r},${c}`);
+      }
+    }
+  }
+
+  const table = el.createEl("table");
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const tr = table.createEl("tr");
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      if (merged.has(`${r},${c}`)) continue;
+      const td = tr.createEl("td");
+      const m = mergeStart.get(`${r},${c}`);
+      if (m) {
+        if (m.cs > 1) td.colSpan = m.cs;
+        if (m.rs > 1) td.rowSpan = m.rs;
+      }
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      if (!cell) continue;
+      td.setText(cell.w ?? String(cell.v ?? ""));
+      const s = cell.s as
+        | { patternType?: string; fgColor?: { rgb?: string } }
+        | undefined;
+      if (s?.patternType === "solid" && s.fgColor?.rgb) {
+        td.style.backgroundColor = "#" + s.fgColor.rgb.slice(-6);
+        const fg = fgForBackground(s.fgColor.rgb);
+        if (fg) td.style.color = fg;
+      }
+    }
+  }
+}
+
+async function renderXlsx(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
+  // cellStyles: 读出填充色/合并等基础样式
+  const wb = XLSX.read(new Uint8Array(buf), {
+    type: "array",
+    cellStyles: true,
+  });
+  if (wb.SheetNames.length <= 1) {
+    renderXlsxSheet(el, wb, wb.SheetNames[0]);
+    return;
+  }
+  // 多 sheet:页签切换
+  const tabs = el.createDiv("openlist-xlsx-tabs");
+  const body = el.createDiv("openlist-xlsx-body");
+  const show = (name: string, btn: HTMLButtonElement) => {
+    for (const b of Array.from(tabs.querySelectorAll("button"))) {
+      b.removeClass("is-active");
+    }
+    btn.addClass("is-active");
+    body.empty();
+    renderXlsxSheet(body, wb, name);
+  };
+  wb.SheetNames.forEach((name, i) => {
+    const btn = tabs.createEl("button", { text: name });
+    btn.addEventListener("click", () => show(name, btn));
+    if (i === 0) show(name, btn);
+  });
 }
 
 async function renderPptx(el: HTMLElement, buf: ArrayBuffer): Promise<void> {
   const holder = el.createDiv("openlist-pptx");
-  const previewer = initPptxPreview(holder, {
-    width: 960,
-    height: 540,
-    mode: "list",
+  let lastWidth = 0;
+  const render = () => {
+    const w = Math.max(
+      320,
+      Math.floor(holder.clientWidth || el.clientWidth || 960)
+    );
+    if (Math.abs(w - lastWidth) < 40) return; // 宽度基本没变不重绘
+    lastWidth = w;
+    holder.empty();
+    const previewer = initPptxPreview(holder, {
+      width: w,
+      height: Math.round((w * 9) / 16),
+      mode: "list",
+    });
+    void previewer.preview(buf.slice(0));
+  };
+  render();
+  // 容器宽度变化(窗口/侧栏调整)时去抖重绘
+  let timer: number | null = null;
+  const ro = new ResizeObserver(() => {
+    if (!holder.isConnected) {
+      ro.disconnect();
+      return;
+    }
+    if (timer !== null) window.clearTimeout(timer);
+    timer = window.setTimeout(render, 400);
   });
-  await previewer.preview(buf);
+  ro.observe(holder);
 }
 
 export class DocPreviewModal extends Modal {

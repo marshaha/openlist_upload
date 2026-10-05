@@ -89,3 +89,26 @@
 .openlist-pdf-container .loadingIcon {
   display: none;
 }
+
+/* XLSX 页签 */
+.openlist-xlsx-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.openlist-xlsx-tabs button {
+  padding: 2px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.openlist-xlsx-tabs button.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.openlist-xlsx-body {
+  overflow-x: auto;
+}
